@@ -70,12 +70,18 @@ def get_ek_public_pem() -> Optional[str]:
     """
     system = platform.system().lower()
     if system == "windows":
+        # Preferred: EK public via cmdlet (PEM-like text)
         ps = _read_cmd([
             "powershell",
             "-NoProfile",
             "if (Get-Command Get-TpmEndorsementKeyInfo -ErrorAction SilentlyContinue) { ($ek = Get-TpmEndorsementKeyInfo) | Out-Null; if ($ek -and $ek.PublicKey) { $ek.PublicKey } else { '' } } else { '' }",
         ])
         return ps if ps and ps.strip() else None
+    if system == "windows":
+        # Fallback: tpmtool device information (not PEM, but public material may be present depending on OEM)
+        info = _read_cmd(["tpmtool", "getdeviceinformation"]) or ""
+        if info.strip():
+            return info
     # Windows-only focus; return None for other OSes
     return None
 

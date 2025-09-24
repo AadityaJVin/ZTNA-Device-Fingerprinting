@@ -30,7 +30,10 @@ def main() -> None:
     device_id = fingerprint
 
     print("Attributes:")
-    print(json.dumps(attributes, indent=2))
+    to_show = dict(attributes)
+    if "tpm_attest_pub_pem" in to_show and len(to_show["tpm_attest_pub_pem"]) > 200:
+        to_show["tpm_attest_pub_pem"] = to_show["tpm_attest_pub_pem"][:200] + "... [truncated]"
+    print(json.dumps(to_show, indent=2))
     print(f"Local fingerprint: {fingerprint}")
     print(f"Device ID: {device_id}")
 
