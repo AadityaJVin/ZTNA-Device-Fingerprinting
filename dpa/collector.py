@@ -88,20 +88,33 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
         attributes["cpu_id"] = cpu_id
 
     # TPM attestation public key (EK) and derived hash (Windows focus)
-    # Try multiple Windows sources for EK
-    ek_pem = get_ek_public_pem() or get_ek_certificate_pem()
+    # Try multiple Windows sources for EK and note source for debugging
+    tpm_source = None
+    serial_source = None
+
+    ek_pem = get_ek_public_pem()
+    if ek_pem:
+        tpm_source = "powershell:Get-TpmEndorsementKeyInfo"
+    if not ek_pem:
+        ek_pem = get_ek_certificate_pem()
+        if ek_pem:
+            tpm_source = "tpmtool:getekcertificate"
     if not ek_pem:
         pem2, sn2 = get_ek_cert_from_certstore_pem_and_serial()
         if pem2:
             ek_pem = pem2
+            tpm_source = "certstore:LocalMachine/TPM/Certificates"
             if sn2:
                 attributes["tpm_ek_cert_serial"] = sn2
+                serial_source = "certstore:SerialNumber"
     if not ek_pem:
         pem3, sn3 = get_ek_cert_from_registry_pem_and_serial()
         if pem3:
             ek_pem = pem3
+            tpm_source = "registry:EKCertStore"
             if sn3:
                 attributes["tpm_ek_cert_serial"] = sn3
+                serial_source = "registry:EKCertStore"
     if ek_pem:
         attributes["tpm_attest_pub_pem"] = ek_pem
         attributes["tpm_pubkey_hash"] = hashlib.sha256(ek_pem.encode("utf-8")).hexdigest()
@@ -112,9 +125,18 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
             attributes["tpm_pubkey_hash"] = tpm_hash
 
     # EK certificate serial (if available) for visibility
-    ek_serial = get_ek_certificate_serial()
-    if ek_serial:
-        attributes["tpm_ek_cert_serial"] = ek_serial
+    if "tpm_ek_cert_serial" not in attributes:
+        ek_serial = get_ek_certificate_serial()
+        if ek_serial:
+            attributes["tpm_ek_cert_serial"] = ek_serial
+            if not serial_source:
+                serial_source = "powershell:Get-TpmEndorsementKeyInfo or tpmtool:getdeviceinformation"
+
+    # Add debug source fields (not included in fingerprint)
+    if tpm_source:
+        attributes["tpm_source"] = tpm_source
+    if serial_source:
+        attributes["tpm_serial_source"] = serial_source
 
     # Disk serial/UUID best-effort
     disk_id = None

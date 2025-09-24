@@ -37,6 +37,10 @@ def main() -> None:
         pem = to_show["tpm_attest_pub_pem"]
         if len(pem) > 260:
             to_show["tpm_attest_pub_pem"] = pem[:120] + " ... [truncated] ... " + pem[-120:]
+    # Always surface sources if present
+    for meta in ("tpm_source", "tpm_serial_source"):
+        if meta in attributes:
+            to_show[meta] = attributes[meta]
     print(json.dumps(to_show, indent=2))
     print(f"Local fingerprint: {fingerprint}")
     print(f"Device ID: {device_id}")
