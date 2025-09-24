@@ -15,12 +15,12 @@
 ## Fingerprint
 - SHA-256 over canonical JSON (no shared secret). Full 64-hex is the device_id.
 
-## Flows
-- Onboarding: client sends attributes; server computes fingerprint, stores record.
-- Attestation: client sends device_id + attributes; server recomputes and compares.
+## Flows (client-only)
+- Collect attributes locally and compute SHA-256 fingerprint.
+- Display results; no server calls.
 
 ## Whitelisting
-- Server enforces whitelist by `tpm_pubkey_hash` if present.
+- Not applicable in client-only mode.
 
 ## Notes
 - EK public availability varies; fallbacks attempt to read other TPM public material or skip if unavailable.
