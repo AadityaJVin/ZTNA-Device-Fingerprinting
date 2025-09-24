@@ -28,6 +28,8 @@ def get_tpm_public_material_hash() -> Optional[str]:
     Returns SHA-256 hex of whatever public bytes/text we can access.
     """
     system = platform.system().lower()
+    if system != "windows":
+        return None
     if system == "windows":
         # Attempt to get EK public key info (requires Windows 11/Server 2022+ environments)
         ps = _read_cmd([
@@ -77,11 +79,10 @@ def get_ek_public_pem() -> Optional[str]:
             "if (Get-Command Get-TpmEndorsementKeyInfo -ErrorAction SilentlyContinue) { ($ek = Get-TpmEndorsementKeyInfo) | Out-Null; if ($ek -and $ek.PublicKey) { $ek.PublicKey } else { '' } } else { '' }",
         ])
         return ps if ps and ps.strip() else None
-    if system == "windows":
-        # Fallback: tpmtool device information (not PEM, but public material may be present depending on OEM)
-        info = _read_cmd(["tpmtool", "getdeviceinformation"]) or ""
-        if info.strip():
-            return info
+    # Fallback: tpmtool device information (not PEM, but may contain public material)
+    info = _read_cmd(["tpmtool", "getdeviceinformation"]) or ""
+    if info.strip():
+        return info
     # Windows-only focus; return None for other OSes
     return None
 
