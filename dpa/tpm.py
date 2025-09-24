@@ -69,24 +69,28 @@ def get_tpm_public_material_hash() -> Optional[str]:
 
 
 def get_ek_public_pem() -> Optional[str]:
-    """Retrieve the TPM Endorsement Key (EK) public in a printable format if possible.
-
-    Returns a PEM or textual representation when available; otherwise None.
-    """
+    """Retrieve the TPM EK certificate as PEM via TrustedPlatformModule if available (Windows)."""
     system = platform.system().lower()
-    if system == "windows":
-        # Preferred: EK public via cmdlet (PEM-like text)
-        ps = _read_cmd([
-            "powershell",
-            "-NoProfile",
-            "if (Get-Command Get-TpmEndorsementKeyInfo -ErrorAction SilentlyContinue) { ($ek = Get-TpmEndorsementKeyInfo) | Out-Null; if ($ek -and $ek.PublicKey) { $ek.PublicKey } else { '' } } else { '' }",
-        ])
-        return ps if ps and ps.strip() else None
-    # Fallback: tpmtool device information (not PEM, but may contain public material)
+    if system != "windows":
+        return None
+    ps = _read_cmd([
+        "powershell",
+        "-NoProfile",
+        (
+            "if (Get-Module -ListAvailable -Name TrustedPlatformModule) { Import-Module TrustedPlatformModule -ErrorAction SilentlyContinue }; "
+            "$ek = $null; if (Get-Command Get-TpmEndorsementKeyInfo -ErrorAction SilentlyContinue) { $ek = Get-TpmEndorsementKeyInfo }; "
+            "if ($ek -and $ek.ManufacturerCertificates -and $ek.ManufacturerCertificates.Count -gt 0) { $c = $ek.ManufacturerCertificates[0]; [Convert]::ToBase64String($c.Export('Cert')) } else { '' }"
+        ),
+    ])
+    if ps and ps.strip():
+        try:
+            return _wrap_pem(ps.strip(), header="CERTIFICATE")
+        except Exception:
+            return None
+    # Fallback: device info text (non-PEM)
     info = _read_cmd(["tpmtool", "getdeviceinformation"]) or ""
     if info.strip():
         return info
-    # Windows-only focus; return None for other OSes
     return None
 
 
