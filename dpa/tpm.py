@@ -69,7 +69,10 @@ def get_tpm_public_material_hash() -> Optional[str]:
 
 
 def get_ek_public_pem() -> Optional[str]:
-    """Retrieve the TPM EK certificate as PEM via TrustedPlatformModule if available (Windows)."""
+    """Retrieve the TPM EK certificate as PEM via TrustedPlatformModule if available (Windows).
+
+    Returns PEM only; never returns informational text.
+    """
     system = platform.system().lower()
     if system != "windows":
         return None
@@ -87,10 +90,6 @@ def get_ek_public_pem() -> Optional[str]:
             return _wrap_pem(ps.strip(), header="CERTIFICATE")
         except Exception:
             return None
-    # Fallback: device info text (non-PEM)
-    info = _read_cmd(["tpmtool", "getdeviceinformation"]) or ""
-    if info.strip():
-        return info
     return None
 
 
