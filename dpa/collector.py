@@ -134,6 +134,11 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
     if ek_pem:
         attributes["tpm_attest_pub_pem"] = ek_pem
         attributes["tpm_pubkey_hash"] = hashlib.sha256(ek_pem.encode("utf-8")).hexdigest()
+    else:
+        # Fallback to other public material hash if available
+        tpm_hash = get_tpm_public_material_hash()
+        if tpm_hash:
+            attributes["tpm_pubkey_hash"] = tpm_hash
 
     # Disk serial/UUID best-effort
     disk_id = None

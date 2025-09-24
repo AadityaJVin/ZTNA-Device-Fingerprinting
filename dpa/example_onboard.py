@@ -31,8 +31,11 @@ def main() -> None:
 
     print("Attributes:")
     to_show = dict(attributes)
-    if "tpm_attest_pub_pem" in to_show and len(to_show["tpm_attest_pub_pem"]) > 200:
-        to_show["tpm_attest_pub_pem"] = to_show["tpm_attest_pub_pem"][:200] + "... [truncated]"
+    # If EK is long, show first and last 120 chars for visual verification
+    if "tpm_attest_pub_pem" in to_show:
+        pem = to_show["tpm_attest_pub_pem"]
+        if len(pem) > 260:
+            to_show["tpm_attest_pub_pem"] = pem[:120] + " ... [truncated] ... " + pem[-120:]
     print(json.dumps(to_show, indent=2))
     print(f"Local fingerprint: {fingerprint}")
     print(f"Device ID: {device_id}")
