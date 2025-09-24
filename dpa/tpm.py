@@ -4,6 +4,9 @@ import hashlib
 import platform
 import subprocess
 from typing import Optional
+import os
+import re
+import base64
 
 
 def _read_cmd(command: list[str]) -> Optional[str]:
@@ -85,6 +88,30 @@ def get_ek_public_pem() -> Optional[str]:
         return info
     # Windows-only focus; return None for other OSes
     return None
+
+
+def _wrap_pem(b64: str, header: str = "CERTIFICATE") -> str:
+    lines = [b64[i:i+64] for i in range(0, len(b64), 64)]
+    return "-----BEGIN " + header + "-----\n" + "\n".join(lines) + "\n-----END " + header + "-----\n"
+
+
+def get_ek_certificate_pem() -> Optional[str]:
+    """Retrieve EK certificate and return PEM string if available (Windows)."""
+    if platform.system().lower() != "windows":
+        return None
+    out = _read_cmd(["tpmtool", "getekcertificate"]) or ""
+    # Expect a line like: "EK certificate saved to C:\\...\\ekcert.cer"
+    match = re.search(r"saved to\s+([^\r\n]+\.(cer|der))", out, re.IGNORECASE)
+    if not match:
+        return None
+    path = match.group(1).strip().strip('"')
+    try:
+        with open(path, "rb") as f:
+            der = f.read()
+        b64 = base64.b64encode(der).decode("ascii")
+        return _wrap_pem(b64, header="CERTIFICATE")
+    except Exception:
+        return None
 
 
 def create_ak_and_get_public_pem(label: str = "ak") -> Optional[str]:

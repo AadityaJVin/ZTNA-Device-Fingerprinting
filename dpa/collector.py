@@ -12,7 +12,7 @@ import platform
 import subprocess
 import hashlib
 from typing import Dict, Optional
-from dpa.tpm import get_tpm_public_material_hash, get_ek_public_pem
+from dpa.tpm import get_tpm_public_material_hash, get_ek_public_pem, get_ek_certificate_pem
 
 
 def _read_cmd_output(command: list[str]) -> Optional[str]:
@@ -81,7 +81,7 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
         attributes["cpu_id"] = cpu_id
 
     # TPM attestation public key (EK) and derived hash (Windows focus)
-    ek_pem = get_ek_public_pem()
+    ek_pem = get_ek_public_pem() or get_ek_certificate_pem()
     if ek_pem:
         attributes["tpm_attest_pub_pem"] = ek_pem
         attributes["tpm_pubkey_hash"] = hashlib.sha256(ek_pem.encode("utf-8")).hexdigest()
