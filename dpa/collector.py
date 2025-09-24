@@ -17,6 +17,8 @@ from dpa.tpm import (
     get_ek_public_pem,
     get_ek_certificate_pem,
     get_ek_certificate_serial,
+    get_ek_cert_from_certstore_pem_and_serial,
+    get_ek_cert_from_registry_pem_and_serial,
 )
 
 
@@ -86,7 +88,20 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
         attributes["cpu_id"] = cpu_id
 
     # TPM attestation public key (EK) and derived hash (Windows focus)
+    # Try multiple Windows sources for EK
     ek_pem = get_ek_public_pem() or get_ek_certificate_pem()
+    if not ek_pem:
+        pem2, sn2 = get_ek_cert_from_certstore_pem_and_serial()
+        if pem2:
+            ek_pem = pem2
+            if sn2:
+                attributes["tpm_ek_cert_serial"] = sn2
+    if not ek_pem:
+        pem3, sn3 = get_ek_cert_from_registry_pem_and_serial()
+        if pem3:
+            ek_pem = pem3
+            if sn3:
+                attributes["tpm_ek_cert_serial"] = sn3
     if ek_pem:
         attributes["tpm_attest_pub_pem"] = ek_pem
         attributes["tpm_pubkey_hash"] = hashlib.sha256(ek_pem.encode("utf-8")).hexdigest()

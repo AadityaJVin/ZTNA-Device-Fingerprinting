@@ -139,6 +139,64 @@ def get_ek_certificate_serial() -> Optional[str]:
     return None
 
 
+def get_ek_cert_from_certstore_pem_and_serial() -> tuple[Optional[str], Optional[str]]:
+    """Try reading EK certificate from LocalMachine certificate store and return (PEM, Serial)."""
+    if platform.system().lower() != "windows":
+        return None, None
+    ps = _read_cmd([
+        "powershell",
+        "-NoProfile",
+        (
+            "$store = 'Cert:\\LocalMachine\\Trusted Platform Module\\Certificates';"
+            "$c = Get-ChildItem -Path $store -ErrorAction SilentlyContinue | Select-Object -First 1;"
+            "if ($c) {"
+            "  $b64 = [Convert]::ToBase64String($c.Export('Cert'));"
+            "  Write-Output ($b64 + '::SN::' + $c.SerialNumber)"
+            "} else { '' }"
+        ),
+    ])
+    if not ps or not ps.strip():
+        return None, None
+    try:
+        b64, sn = ps.split("::SN::", 2)[0:2]
+        pem = _wrap_pem(b64, header="CERTIFICATE")
+        return pem, sn.strip()
+    except Exception:
+        return None, None
+
+
+def get_ek_cert_from_registry_pem_and_serial() -> tuple[Optional[str], Optional[str]]:
+    """Fallback: read EK cert from registry EKCertStore and return (PEM, Serial)."""
+    if platform.system().lower() != "windows":
+        return None, None
+    ps = _read_cmd([
+        "powershell",
+        "-NoProfile",
+        (
+            "$base = 'HKLM:SOFTWARE\\Microsoft\\TPM\\EKCertStore';"
+            "if (Test-Path $base) {"
+            "  $keys = Get-ChildItem -Path $base -ErrorAction SilentlyContinue;"
+            "  foreach ($k in $keys) {"
+            "    $certBytes = (Get-ItemProperty -Path $k.PSPath -Name Certificate -ErrorAction SilentlyContinue).Certificate;"
+            "    if ($certBytes) {"
+            "      $b64 = [Convert]::ToBase64String($certBytes);"
+            "      $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certBytes);"
+            "      Write-Output ($b64 + '::SN::' + $cert.SerialNumber); break"
+            "    }"
+            "  }"
+            "} else { '' }"
+        ),
+    ])
+    if not ps or not ps.strip():
+        return None, None
+    try:
+        b64, sn = ps.split("::SN::", 2)[0:2]
+        pem = _wrap_pem(b64, header="CERTIFICATE")
+        return pem, sn.strip()
+    except Exception:
+        return None, None
+
+
 def create_ak_and_get_public_pem(label: str = "ak") -> Optional[str]:
     """Create an Attestation Key (AK) and return its public part in PEM (Linux).
 

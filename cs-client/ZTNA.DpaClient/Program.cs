@@ -8,6 +8,7 @@ using System.Text;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Security.Cryptography.X509Certificates;
 
 class Program
 {
@@ -16,7 +17,7 @@ class Program
         try
         {
             var attributes = CollectAttributes();
-            var includeKeys = new[] { "board_serial", "cpu_id", "tpm_attest_pub_pem", "tpm_pubkey_hash", "disk_serial_or_uuid" };
+            var includeKeys = new[] { "board_serial", "cpu_id", "tpm_attest_pub_pem", "tpm_pubkey_hash", "tpm_ek_cert_serial", "disk_serial_or_uuid" };
             var canonical = Canonicalize(attributes, includeKeys);
             var fingerprint = Sha256Hex(Encoding.UTF8.GetBytes(canonical));
 
@@ -86,12 +87,16 @@ class Program
         // Disk serial (first physical disk)
         dict["disk_serial_or_uuid"] = QueryWmiSingle("Win32_DiskDrive", "SerialNumber") ?? string.Empty;
 
-        // TPM EK public PEM via tpmtool (or other public material)
-        var pem = GetEkPublicPemViaTpmtool() ?? GetTpmDeviceInfoViaTpmtool();
+        // TPM EK public PEM and serial from multiple sources
+        var (pem, serial) = TryGetEkCertPemAndSerial();
         if (!string.IsNullOrWhiteSpace(pem))
         {
             dict["tpm_attest_pub_pem"] = pem;
             dict["tpm_pubkey_hash"] = Sha256Hex(Encoding.UTF8.GetBytes(pem));
+        }
+        if (!string.IsNullOrWhiteSpace(serial))
+        {
+            dict["tpm_ek_cert_serial"] = serial;
         }
 
         // Remove empties
@@ -100,19 +105,35 @@ class Program
         return dict;
     }
 
-    static string? QueryWmiSingle(string wmiClass, string property)
+    static (string? pem, string? serial) TryGetEkCertPemAndSerial()
     {
-        try
+        // 1) tpmtool getekcertificate -> saved .cer
+        var pem = GetEkPublicPemViaTpmtool();
+        if (!string.IsNullOrWhiteSpace(pem))
         {
-            using var searcher = new ManagementObjectSearcher($"SELECT {property} FROM {wmiClass}");
-            foreach (var mo in searcher.Get())
+            // Serial may not be known here
+            return (pem, null);
+        }
+        // 2) Parse tpmtool device info (no PEM, but serial may exist)
+        var info = GetTpmDeviceInfoViaTpmtool();
+        string? serialFromInfo = null;
+        if (!string.IsNullOrWhiteSpace(info))
+        {
+            var line = info.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                           .FirstOrDefault(s => s.Contains("Serial Number", StringComparison.OrdinalIgnoreCase));
+            if (line != null)
             {
-                var val = mo[property]?.ToString();
-                if (!string.IsNullOrWhiteSpace(val)) return val.Trim();
+                var parts = line.Split(':');
+                if (parts.Length >= 2) serialFromInfo = parts[1].Trim();
             }
         }
-        catch { }
-        return null;
+        // 3) Cert store fallback
+        var (pemStore, snStore) = GetEkCertFromCertStore();
+        if (!string.IsNullOrWhiteSpace(pemStore) || !string.IsNullOrWhiteSpace(snStore))
+        {
+            return (pemStore, snStore ?? serialFromInfo);
+        }
+        return (null, serialFromInfo);
     }
 
     static string? GetEkPublicPemViaTpmtool()
@@ -160,6 +181,23 @@ class Program
         catch { return null; }
     }
 
+    static (string? pem, string? serial) GetEkCertFromCertStore()
+    {
+        try
+        {
+            using var lm = new X509Store("Trusted Platform Module\\Certificates", StoreLocation.LocalMachine);
+            lm.Open(OpenFlags.ReadOnly);
+            foreach (var cert in lm.Certificates)
+            {
+                var b64 = Convert.ToBase64String(cert.Export(X509ContentType.Cert));
+                var pem = WrapPem(b64, "CERTIFICATE");
+                return (pem, cert.SerialNumber);
+            }
+        }
+        catch { }
+        return (null, null);
+    }
+
     static string WrapPem(string b64, string header)
     {
         var sb = new StringBuilder();
@@ -173,5 +211,6 @@ class Program
         return sb.ToString();
     }
 }
+
 
 
