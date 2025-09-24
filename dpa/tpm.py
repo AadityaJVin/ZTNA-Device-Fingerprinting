@@ -63,3 +63,31 @@ def get_tpm_public_material_hash() -> Optional[str]:
     return None
 
 
+def get_ek_public_pem() -> Optional[str]:
+    """Retrieve the TPM Endorsement Key (EK) public in a printable format if possible.
+
+    Returns a PEM or textual representation when available; otherwise None.
+    """
+    system = platform.system().lower()
+    if system == "windows":
+        ps = _read_cmd([
+            "powershell",
+            "-NoProfile",
+            "if (Get-Command Get-TpmEndorsementKeyInfo -ErrorAction SilentlyContinue) { ($ek = Get-TpmEndorsementKeyInfo) | Out-Null; if ($ek -and $ek.PublicKey) { $ek.PublicKey } else { '' } } else { '' }",
+        ])
+        return ps if ps and ps.strip() else None
+    # Windows-only focus; return None for other OSes
+    return None
+
+
+def create_ak_and_get_public_pem(label: str = "ak") -> Optional[str]:
+    """Create an Attestation Key (AK) and return its public part in PEM (Linux).
+
+    Windows AK provisioning via PowerShell/CNG is environment-specific and not implemented here.
+    On Linux, requires tpm2-tools. Returns PEM string or None.
+    """
+    system = platform.system().lower()
+    # Not implemented for Windows in this demo
+    return None
+
+

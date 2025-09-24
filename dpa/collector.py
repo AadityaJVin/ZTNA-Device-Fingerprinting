@@ -14,7 +14,7 @@ import socket
 import subprocess
 import uuid
 from typing import Dict, Optional
-from dpa.tpm import get_tpm_public_material_hash
+from dpa.tpm import get_tpm_public_material_hash, get_ek_public_pem
 
 
 def _read_cmd_output(command: list[str]) -> Optional[str]:
@@ -129,10 +129,11 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
     if cpu_id:
         attributes["cpu_id"] = cpu_id
 
-    # TPM public material hash (if available)
-    tpm_hash = get_tpm_public_material_hash()
-    if tpm_hash:
-        attributes["tpm_pubkey_hash"] = tpm_hash
+    # TPM attestation public key (EK) and derived hash (Windows focus)
+    ek_pem = get_ek_public_pem()
+    if ek_pem:
+        attributes["tpm_attest_pub_pem"] = ek_pem
+        attributes["tpm_pubkey_hash"] = hashlib.sha256(ek_pem.encode("utf-8")).hexdigest()
 
     # Disk serial/UUID best-effort
     disk_id = None

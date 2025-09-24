@@ -5,8 +5,7 @@ import os
 import urllib.request
 
 from dpa.collector import collect_device_attributes
-from dpa.fingerprint import derive_fingerprint_hmac, derive_device_id
-from dpa.fingerprint import canonicalize_attributes
+from dpa.fingerprint import derive_fingerprint_sha256
 
 
 def post_json(url: str, payload: dict) -> dict:
@@ -26,7 +25,7 @@ def main() -> None:
         "tpm_pubkey_hash",
         "disk_serial_or_uuid",
     ]
-    fingerprint = derive_fingerprint_hmac(attributes, secret, include_keys=include)
+    fingerprint = derive_fingerprint_sha256(attributes, include_keys=include)
     # Use full fingerprint as device_id
     device_id = fingerprint
 

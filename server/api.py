@@ -13,7 +13,7 @@ import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any, Dict
 
-from dpa.fingerprint import derive_fingerprint_hmac, canonicalize_attributes, derive_device_id
+from dpa.fingerprint import derive_fingerprint_sha256, canonicalize_attributes
 from server.storage import JsonStorage
 from dpa.fingerprint import default_stable_keys
 
@@ -87,7 +87,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             "disk_serial_or_uuid",
         ]
         canonical_json, _ = canonicalize_attributes(attributes, include_keys=include)
-        fingerprint = derive_fingerprint_hmac(attributes, self.secret, include_keys=include)
+        fingerprint = derive_fingerprint_sha256(attributes, include_keys=include)
         # Use full HMAC as device_id for maximum security
         device_id = fingerprint
 
@@ -124,7 +124,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             "tpm_pubkey_hash",
             "disk_serial_or_uuid",
         ]
-        actual_fingerprint = derive_fingerprint_hmac(attributes, self.secret, include_keys=include)
+        actual_fingerprint = derive_fingerprint_sha256(attributes, include_keys=include)
         ok = hmac_compare_digest(expected_fingerprint, actual_fingerprint)
         status = "ok" if ok else "mismatch"
         self._send(200, {"status": status, "expected": expected_fingerprint, "actual": actual_fingerprint})

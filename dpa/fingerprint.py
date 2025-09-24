@@ -17,6 +17,7 @@ import hmac
 import hashlib
 import json
 from typing import Dict, Iterable, Tuple, Optional, List, Set
+import hashlib
 
 
 def _normalize_mac(value: str) -> str:
@@ -111,6 +112,29 @@ def derive_fingerprint_hmac(
     digestmod = getattr(hashlib, hash_name)
     mac = hmac.new(secret, canonical_json.encode("utf-8"), digestmod)
     return mac.hexdigest()
+
+
+def derive_fingerprint_sha256(
+    attributes: Dict[str, str],
+    *,
+    version: str = "v1",
+    include_keys: Optional[Iterable[str]] = None,
+    exclude_keys: Optional[Iterable[str]] = None,
+    enroll_nonce: Optional[str] = None,
+) -> str:
+    """Compute SHA-256 over canonical JSON (no secret). Returns hex digest.
+
+    Use for environments where a shared secret is not desired; relies on
+    the stability and entropy of the selected attributes.
+    """
+    canonical_json, _ = canonicalize_attributes(
+        attributes,
+        version=version,
+        include_keys=include_keys,
+        exclude_keys=exclude_keys,
+        enroll_nonce=enroll_nonce,
+    )
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
 
 
 def derive_device_id(
