@@ -32,13 +32,12 @@ def main() -> None:
 
     print("Attributes:")
     to_show = dict(attributes)
-    # If EK is present and is PEM, show it fully but keep it separate for readability
-    if "tpm_attest_pub_pem" in to_show and to_show["tpm_attest_pub_pem"].startswith("-----BEGIN "):
-        print(json.dumps({k: v for k, v in to_show.items() if k != "tpm_attest_pub_pem"}, indent=2))
-        print("\nTPM EK Certificate (PEM):\n")
-        print(to_show["tpm_attest_pub_pem"])  # full PEM
-    else:
-        print(json.dumps(to_show, indent=2))
+    # If EK is long, show first and last 120 chars for visual verification
+    if "tpm_attest_pub_pem" in to_show:
+        pem = to_show["tpm_attest_pub_pem"]
+        if len(pem) > 260:
+            to_show["tpm_attest_pub_pem"] = pem[:120] + " ... [truncated] ... " + pem[-120:]
+    print(json.dumps(to_show, indent=2))
     # Always surface sources if present
     for meta in ("tpm_source", "tpm_serial_source"):
         if meta in attributes:
