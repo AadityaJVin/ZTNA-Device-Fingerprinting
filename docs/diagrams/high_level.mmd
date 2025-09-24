@@ -1,0 +1,9 @@
+flowchart TD
+    A[Windows Device] --> B[Collector: dpa/collector.py]
+    B --> C[TPM Helper: dpa/tpm.py]
+    B --> D[WMI/WMIC & OS commands]
+    B --> E[Attributes Dict]
+    E --> F[Fingerprint: dpa/fingerprint.py]
+    F --> G[SHA-256 Device ID]
+    E --> H[Console Output]
+    G --> H

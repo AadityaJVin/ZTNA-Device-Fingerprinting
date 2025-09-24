@@ -1,0 +1,9 @@
+flowchart LR
+    A[Attributes Dict] --> B{normalize?}
+    B -- True --> C[normalize_attributes\n- lower-case keys\n- trim values]
+    B -- False --> D[use values as-is]
+    C --> E[include_keys / exclude_keys]
+    D --> E
+    E --> F[sort keys lexicographically]
+    F --> G[compact JSON (no whitespace)]
+    G --> H[SHA-256 digest → 64-hex device ID]

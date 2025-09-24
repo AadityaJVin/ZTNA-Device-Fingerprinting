@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant User
+    participant Collector as collector.py
+    participant TPM as tpm.py
+    participant OS as Windows WMI/Tools
+
+    User->>Collector: run python -m dpa.example_onboard
+    Collector->>OS: Win32_BIOS.SerialNumber (board_serial)
+    OS-->>Collector: BIOS serial (if available)
+    Collector->>OS: Win32_Processor.ProcessorId (cpu_id)
+    OS-->>Collector: CPU ID (best effort)
+    Collector->>OS: Win32_DiskDrive.SerialNumber (disk_serial)
+    OS-->>Collector: Disk serial/UUID
+
+    Note over Collector,TPM: Retrieve EK public/serial via fallbacks
+    Collector->>TPM: get_ek_public_pem()
+    TPM-->>Collector: EK PEM or ''
+    alt no PEM
+        Collector->>TPM: get_ek_certificate_pem()
+        TPM-->>Collector: EK PEM or ''
+        Collector->>TPM: get_ek_cert_from_certstore_pem_and_serial()
+        TPM-->>Collector: (PEM, serial)?
+        Collector->>TPM: get_ek_cert_from_registry_pem_and_serial()
+        TPM-->>Collector: (PEM, serial)?
+    end
+
+    Collector->>Collector: tpm_pubkey_hash = SHA-256(PEM/bytes)
+    Collector-->>User: Attributes dict (JSON)
