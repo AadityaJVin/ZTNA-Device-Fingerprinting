@@ -14,6 +14,9 @@ Bind a device to relatively stable hardware attributes and derive a cryptographi
 - `docs/design.md`: Design & threat model
 - `tests/test_fingerprint.py`: Fingerprint unit tests
 
+##Diagram
+[example_onboard.py.pdf](https://github.com/user-attachments/files/22517958/example_onboard.py.pdf)
+
 ## Requirements
 - Windows with Python 3.8+
 - TPM enabled (for EK public visibility, where available)
@@ -42,4 +45,5 @@ Not applicable (server removed). Client runs fully locally.
 ## Notes
 - EK public exposure depends on hardware/firmware and permissions; if not available, a TPM public material hash is used when possible.
 - License: MIT
+
 
