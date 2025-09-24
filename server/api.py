@@ -35,6 +35,7 @@ def _load_secret() -> bytes:
 class ApiHandler(BaseHTTPRequestHandler):
     storage = JsonStorage()
     secret = _load_secret()
+    allow_first_enroll = os.environ.get("DPA_ALLOW_FIRST_ENROLL", "0") in ("1", "true", "True")
 
     def _send(self, status: int, payload: Dict[str, Any]) -> None:
         data = json.dumps(payload).encode("utf-8")
@@ -75,9 +76,9 @@ class ApiHandler(BaseHTTPRequestHandler):
         # Enforce whitelist by TPM public key hash if provided
         tpm_hash = attributes.get("tpm_pubkey_hash")
         if tpm_hash and not self.storage.is_whitelisted(tpm_hash):
-            # For initial bootstrap you might allow first-time registration; here we enforce whitelist
-            self._send(403, {"error": "tpm_not_whitelisted"})
-            return
+            if not self.allow_first_enroll:
+                self._send(403, {"error": "tpm_not_whitelisted"})
+                return
 
         # Restrict to required stable keys
         include = [
