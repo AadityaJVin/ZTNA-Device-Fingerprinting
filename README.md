@@ -57,4 +57,4 @@ GET http://127.0.0.1:8080/devices
 
 ## Notes
 - EK public exposure depends on hardware/firmware and permissions; if not available, a TPM public material hash is used when possible.
-- License: Proprietary (All Rights Reserved). No redistribution without written permission.
+- License: MIT
