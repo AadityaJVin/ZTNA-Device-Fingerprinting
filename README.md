@@ -42,3 +42,4 @@ Not applicable (server removed). Client runs fully locally.
 ## Notes
 - EK public exposure depends on hardware/firmware and permissions; if not available, a TPM public material hash is used when possible.
 - License: MIT
+
