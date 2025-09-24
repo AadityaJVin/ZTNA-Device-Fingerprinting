@@ -12,7 +12,12 @@ import platform
 import subprocess
 import hashlib
 from typing import Dict, Optional
-from dpa.tpm import get_tpm_public_material_hash, get_ek_public_pem, get_ek_certificate_pem
+from dpa.tpm import (
+    get_tpm_public_material_hash,
+    get_ek_public_pem,
+    get_ek_certificate_pem,
+    get_ek_certificate_serial,
+)
 
 
 def _read_cmd_output(command: list[str]) -> Optional[str]:
@@ -90,6 +95,11 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
         tpm_hash = get_tpm_public_material_hash()
         if tpm_hash:
             attributes["tpm_pubkey_hash"] = tpm_hash
+
+    # EK certificate serial (if available) for visibility
+    ek_serial = get_ek_certificate_serial()
+    if ek_serial:
+        attributes["tpm_ek_cert_serial"] = ek_serial
 
     # Disk serial/UUID best-effort
     disk_id = None

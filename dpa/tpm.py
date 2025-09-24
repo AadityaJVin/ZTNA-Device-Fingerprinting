@@ -114,6 +114,31 @@ def get_ek_certificate_pem() -> Optional[str]:
         return None
 
 
+def get_ek_certificate_serial() -> Optional[str]:
+    """Return EK certificate serial number (Windows, if available)."""
+    if platform.system().lower() != "windows":
+        return None
+    # Try PowerShell TrustedPlatformModule first
+    ps = _read_cmd([
+        "powershell",
+        "-NoProfile",
+        "if (Get-Module -ListAvailable -Name TrustedPlatformModule) { Import-Module TrustedPlatformModule -ErrorAction SilentlyContinue }; "
+        "$ek = $null; if (Get-Command Get-TpmEndorsementKeyInfo -ErrorAction SilentlyContinue) { $ek = Get-TpmEndorsementKeyInfo }; "
+        "if ($ek -and $ek.ManufacturerCertificates) { ($ek.ManufacturerCertificates | Select-Object -First 1).SerialNumber } else { '' }",
+    ])
+    if ps and ps.strip():
+        return ps.strip()
+    # Fallback: parse tpmtool getdeviceinformation output for 'Serial Number'
+    info = _read_cmd(["tpmtool", "getdeviceinformation"]) or ""
+    if info:
+        for line in info.splitlines():
+            if "Serial Number" in line:
+                parts = line.split(":", 1)
+                if len(parts) == 2:
+                    return parts[1].strip()
+    return None
+
+
 def create_ak_and_get_public_pem(label: str = "ak") -> Optional[str]:
     """Create an Attestation Key (AK) and return its public part in PEM (Linux).
 

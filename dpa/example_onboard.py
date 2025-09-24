@@ -23,6 +23,7 @@ def main() -> None:
         "board_serial",
         "cpu_id",
         "tpm_pubkey_hash",
+        "tpm_ek_cert_serial",
         "disk_serial_or_uuid",
     ]
     fingerprint = derive_fingerprint_sha256(attributes, include_keys=include)

@@ -84,6 +84,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             "board_serial",
             "cpu_id",
             "tpm_pubkey_hash",
+            "tpm_ek_cert_serial",
             "disk_serial_or_uuid",
         ]
         canonical_json, _ = canonicalize_attributes(attributes, include_keys=include)
