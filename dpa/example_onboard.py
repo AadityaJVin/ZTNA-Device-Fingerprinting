@@ -2,21 +2,17 @@ from __future__ import annotations
 
 import json
 import os
-import urllib.request
 
 from dpa.collector import collect_device_attributes
 from dpa.fingerprint import derive_fingerprint_sha256
 
 
 def post_json(url: str, payload: dict) -> dict:
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req) as resp:  # nosec B310 (example client)
-        return json.loads(resp.read().decode("utf-8"))
+    raise NotImplementedError("Server calls are disabled in client-only mode.")
 
 
 def main() -> None:
-    server_url = os.environ.get("DPA_SERVER", "http://127.0.0.1:8080")
-    secret = (os.environ.get("DPA_SECRET") or "dpa_demo_secret_key_change_me").encode("utf-8")
+    # Client-only mode: no server URL or secrets needed
 
     attributes = collect_device_attributes()
     include = [
@@ -38,24 +34,11 @@ def main() -> None:
         if len(pem) > 260:
             to_show["tpm_attest_pub_pem"] = pem[:120] + " ... [truncated] ... " + pem[-120:]
     print(json.dumps(to_show, indent=2))
-    # Always surface sources if present
-    for meta in ("tpm_source", "tpm_serial_source"):
-        if meta in attributes:
-            to_show[meta] = attributes[meta]
     print(json.dumps(to_show, indent=2))
     print(f"Local fingerprint: {fingerprint}")
     print(f"Device ID: {device_id}")
 
-    onboard_resp = post_json(f"{server_url}/onboard", {"attributes": attributes})
-    print("Onboard response:")
-    print(json.dumps(onboard_resp, indent=2))
-
-    attest_resp = post_json(
-        f"{server_url}/attest",
-        {"device_id": onboard_resp.get("device_id", device_id), "attributes": attributes},
-    )
-    print("Attest response:")
-    print(json.dumps(attest_resp, indent=2))
+    # Server calls removed in client-only mode
 
 
 if __name__ == "__main__":
