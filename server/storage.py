@@ -19,6 +19,14 @@ class JsonStorage:
             with open(self.path, "w", encoding="utf-8") as f:
                 json.dump({"devices": {}}, f)
 
+    def is_whitelisted(self, tpm_pubkey_hash: str) -> bool:
+        data = self._read()
+        for dev in data.get("devices", {}).values():
+            attrs = dev.get("attributes", {})
+            if attrs.get("tpm_pubkey_hash") == tpm_pubkey_hash:
+                return True
+        return False
+
     def _read(self) -> Dict[str, Any]:
         with self._lock:
             try:

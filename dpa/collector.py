@@ -14,6 +14,7 @@ import socket
 import subprocess
 import uuid
 from typing import Dict, Optional
+from dpa.tpm import get_tpm_public_material_hash
 
 
 def _read_cmd_output(command: list[str]) -> Optional[str]:
@@ -106,24 +107,51 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
     """
     attributes: Dict[str, str] = {}
 
-    # OS and platform details
-    attributes["os_name"] = platform.system()
-    attributes["os_version"] = platform.version()
-    attributes["platform_release"] = platform.release()
-    attributes["platform_machine"] = platform.machine()
-    attributes["platform_processor"] = platform.processor()
-    attributes["hostname"] = socket.gethostname()
-
-    # Hardware identifiers (best-effort)
-    mac = _get_primary_mac_address()
-    if mac:
-        attributes["primary_mac"] = mac
+    # Restrict to requested attributes: board/system serial, CPU ID (best-effort), TPM pubkey hash, disk serial/UUID
+    # Motherboard/system serial
     serial = _get_system_serial()
     if serial:
-        attributes["system_serial"] = serial
+        attributes["board_serial"] = serial
 
-    # Environment hints (non-unique but useful stability signals)
-    attributes["python_version"] = platform.python_version()
+    # Processor ID (weak/non-unique on many systems; included if available)
+    cpu_id = None
+    try:
+        if platform.system().lower() == "windows":
+            text = _read_cmd_output(["wmic", "cpu", "get", "processorid"]) or ""
+            lines = [l.strip() for l in text.splitlines() if l.strip() and "ProcessorId" not in l]
+            if lines:
+                cpu_id = lines[0]
+        else:
+            # Linux/macOS: no stable CPU serial; attempt model hash as last resort
+            cpu_id = platform.processor() or platform.machine()
+    except Exception:
+        cpu_id = None
+    if cpu_id:
+        attributes["cpu_id"] = cpu_id
+
+    # TPM public material hash (if available)
+    tpm_hash = get_tpm_public_material_hash()
+    if tpm_hash:
+        attributes["tpm_pubkey_hash"] = tpm_hash
+
+    # Disk serial/UUID best-effort
+    disk_id = None
+    system = platform.system().lower()
+    if system == "windows":
+        text = _read_cmd_output(["wmic", "diskdrive", "get", "serialnumber"]) or ""
+        lines = [l.strip() for l in text.splitlines() if l.strip() and "SerialNumber" not in l]
+        if lines:
+            disk_id = lines[0]
+    elif system == "darwin":
+        text = _read_cmd_output(["bash", "-lc", "diskutil info disk0 2>/dev/null | grep -E 'Device Identifier|Disk / Partition UUID' "]) or ""
+        if text:
+            disk_id = text.strip()
+    else:
+        text = _read_cmd_output(["bash", "-lc", "lsblk -ndo SERIAL,UUID 2>/dev/null | head -n1"]) or ""
+        if text:
+            disk_id = text.strip()
+    if disk_id:
+        attributes["disk_serial_or_uuid"] = disk_id
 
     # Optional extras
     if extra:

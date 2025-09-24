@@ -6,6 +6,7 @@ import urllib.request
 
 from dpa.collector import collect_device_attributes
 from dpa.fingerprint import derive_fingerprint_hmac, derive_device_id
+from dpa.fingerprint import canonicalize_attributes
 
 
 def post_json(url: str, payload: dict) -> dict:
@@ -19,8 +20,15 @@ def main() -> None:
     secret = (os.environ.get("DPA_SECRET") or "dpa_demo_secret_key_change_me").encode("utf-8")
 
     attributes = collect_device_attributes()
-    fingerprint = derive_fingerprint_hmac(attributes, secret)
-    device_id = derive_device_id(attributes, secret)
+    include = [
+        "board_serial",
+        "cpu_id",
+        "tpm_pubkey_hash",
+        "disk_serial_or_uuid",
+    ]
+    fingerprint = derive_fingerprint_hmac(attributes, secret, include_keys=include)
+    # Use full fingerprint as device_id
+    device_id = fingerprint
 
     print("Attributes:")
     print(json.dumps(attributes, indent=2))
@@ -31,7 +39,10 @@ def main() -> None:
     print("Onboard response:")
     print(json.dumps(onboard_resp, indent=2))
 
-    attest_resp = post_json(f"{server_url}/attest", {"device_id": onboard_resp.get("device_id", device_id), "attributes": attributes})
+    attest_resp = post_json(
+        f"{server_url}/attest",
+        {"device_id": onboard_resp.get("device_id", device_id), "attributes": attributes},
+    )
     print("Attest response:")
     print(json.dumps(attest_resp, indent=2))
 

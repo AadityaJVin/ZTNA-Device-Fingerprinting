@@ -117,7 +117,7 @@ def derive_device_id(
     attributes: Dict[str, str],
     secret: bytes,
     *,
-    length: int = 32,
+    length: int = 64,
     version: str = "v1",
     include_keys: Optional[Iterable[str]] = None,
     exclude_keys: Optional[Iterable[str]] = None,

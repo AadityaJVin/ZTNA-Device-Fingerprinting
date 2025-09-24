@@ -44,7 +44,7 @@ GET http://127.0.0.1:8080/devices
 ```
 
 ## Endpoints
-- `POST /onboard`: `{ "attributes": { ... } }` → `{ device_id, fingerprint }`
+- `POST /onboard`: `{ "attributes": { ... } }` → `{ device_id, fingerprint }` (device_id == full 64-hex fingerprint)
 - `POST /attest`: `{ "device_id", "attributes": { ... } }` → `{ status: "ok"|"mismatch", expected, actual }`
 - `GET /devices`: `{ devices: { [device_id]: record } }`
 

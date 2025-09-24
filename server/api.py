@@ -15,6 +15,7 @@ from typing import Any, Dict
 
 from dpa.fingerprint import derive_fingerprint_hmac, canonicalize_attributes, derive_device_id
 from server.storage import JsonStorage
+from dpa.fingerprint import default_stable_keys
 
 
 def _load_secret() -> bytes:
@@ -71,9 +72,24 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send(400, {"error": "missing_attributes"})
             return
 
-        canonical_json, _ = canonicalize_attributes(attributes)
-        fingerprint = derive_fingerprint_hmac(attributes, self.secret)
-        device_id = derive_device_id(attributes, self.secret)
+        # Enforce whitelist by TPM public key hash if provided
+        tpm_hash = attributes.get("tpm_pubkey_hash")
+        if tpm_hash and not self.storage.is_whitelisted(tpm_hash):
+            # For initial bootstrap you might allow first-time registration; here we enforce whitelist
+            self._send(403, {"error": "tpm_not_whitelisted"})
+            return
+
+        # Restrict to required stable keys
+        include = [
+            "board_serial",
+            "cpu_id",
+            "tpm_pubkey_hash",
+            "disk_serial_or_uuid",
+        ]
+        canonical_json, _ = canonicalize_attributes(attributes, include_keys=include)
+        fingerprint = derive_fingerprint_hmac(attributes, self.secret, include_keys=include)
+        # Use full HMAC as device_id for maximum security
+        device_id = fingerprint
 
         record = {
             "device_id": device_id,
@@ -90,13 +106,25 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send(400, {"error": "missing_params"})
             return
 
+        # Optional whitelist check on every attest
+        tpm_hash = attributes.get("tpm_pubkey_hash")
+        if tpm_hash and not self.storage.is_whitelisted(tpm_hash):
+            self._send(403, {"error": "tpm_not_whitelisted"})
+            return
+
         record = self.storage.get_device(device_id)
         if not record:
             self._send(404, {"error": "unknown_device"})
             return
 
         expected_fingerprint = record.get("fingerprint")
-        actual_fingerprint = derive_fingerprint_hmac(attributes, self.secret)
+        include = [
+            "board_serial",
+            "cpu_id",
+            "tpm_pubkey_hash",
+            "disk_serial_or_uuid",
+        ]
+        actual_fingerprint = derive_fingerprint_hmac(attributes, self.secret, include_keys=include)
         ok = hmac_compare_digest(expected_fingerprint, actual_fingerprint)
         status = "ok" if ok else "mismatch"
         self._send(200, {"status": status, "expected": expected_fingerprint, "actual": actual_fingerprint})

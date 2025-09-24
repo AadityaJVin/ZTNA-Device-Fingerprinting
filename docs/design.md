@@ -18,7 +18,7 @@
 
 ## Fingerprint
 - Use HMAC-SHA256 with server-held secret over canonical JSON.
-- Server returns full fingerprint; device may display a short `device_id` prefix.
+- The full 64-hex HMAC is the `device_id` (no truncation).
 
 ## Onboarding Flow
 1. Client collects attributes via `collect_device_attributes()`.
