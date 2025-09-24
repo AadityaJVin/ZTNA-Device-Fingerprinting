@@ -1,9 +1,5 @@
 # Project Explanation
 
-This file is kept at the repository root for visibility next to `README.md`.
-
-Below is an overview. For the same detailed content, see `docs/EXPLANATION.md`.
-
 ## Top-level
 - `README.md`: How to run and what the tool does (client-only, Windows).
 - `LICENSE`: MIT license for reuse.
