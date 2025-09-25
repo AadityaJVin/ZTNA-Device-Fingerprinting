@@ -34,7 +34,6 @@ def main() -> None:
         if len(pem) > 260:
             to_show["tpm_attest_pub_pem"] = pem[:120] + " ... [truncated] ... " + pem[-120:]
     print(json.dumps(to_show, indent=2))
-    print(json.dumps(to_show, indent=2))
     print(f"Local fingerprint: {fingerprint}")
     print(f"Device ID: {device_id}")
 
