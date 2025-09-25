@@ -135,6 +135,14 @@ def get_ek_certificate_serial() -> Optional[str]:
     ])
     if ps and ps.strip():
         return ps.strip()
+    # Next, try LocalMachine TPM cert store
+    pem_store, sn_store = get_ek_cert_from_certstore_pem_and_serial()
+    if sn_store and sn_store.strip():
+        return sn_store.strip()
+    # Next, try registry EKCertStore
+    pem_reg, sn_reg = get_ek_cert_from_registry_pem_and_serial()
+    if sn_reg and sn_reg.strip():
+        return sn_reg.strip()
     # Fallback: parse tpmtool getdeviceinformation output for 'Serial Number'
     info = _read_cmd(["tpmtool", "getdeviceinformation"]) or ""
     if info:
@@ -143,6 +151,21 @@ def get_ek_certificate_serial() -> Optional[str]:
                 parts = line.split(":", 1)
                 if len(parts) == 2:
                     return parts[1].strip()
+    # As a last resort, try tpmtool getekcertificate and read the saved cert's SerialNumber via PowerShell
+    out = _read_cmd(["tpmtool", "getekcertificate"]) or ""
+    if out:
+        match = re.search(r"saved to\s+([^\r\n]+\.(cer|der))", out, re.IGNORECASE)
+        if match:
+            path = match.group(1).strip().strip('"')
+            ps2 = _read_cmd([
+                "powershell",
+                "-NoProfile",
+                (
+                    f"$p=\"{path}\"; if (Test-Path $p) {{ $c = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($p); $c.SerialNumber }} else {{ '' }}"
+                ),
+            ])
+            if ps2 and ps2.strip():
+                return ps2.strip()
     return None
 
 
