@@ -62,7 +62,7 @@ General notes:
 - If ManufacturerCertificates are shown, the EK certificate/serial should populate.
 
 8) Run the script
-- `python -m dpa.example_onboard`
+- `python -m dpa.client`
 
 Expected behavior after setup:
 - `tpm_attest_pub_pem` will be a real PEM (begins with "-----BEGIN CERTIFICATE-----").

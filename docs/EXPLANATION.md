@@ -7,8 +7,8 @@
 - `docs/diagrams/*.mmd`: Mermaid sources for optional rendered diagrams.
 
 ## Client code (Python, Windows-only)
-- `dpa/example_onboard.py`
-  - Role: Entry point for demo. Orchestrates collection and fingerprinting; prints attributes and the final 64-hex device ID.
+- `dpa/client.py`
+  - Role: Client entry point. Orchestrates collection and fingerprinting; prints attributes and the final 64-hex device ID.
   - Why: A minimal, single-command way to run and see the output without any server.
   - Key behavior:
     - Calls `collect_device_attributes()` to gather identifiers.
@@ -63,7 +63,7 @@
   - `collector.py` focuses on gathering stable identifiers from the OS/TPM.
   - `tpm.py` encapsulates all TPM peculiarities and fallbacks.
   - `fingerprint.py` guarantees deterministic input and secure hashing.
-  - `example_onboard.py` is a simple, user-friendly runner.
+  - `client.py` is a simple, user-friendly runner.
 - Windows-only enforcement:
   - Ensures consistent availability and semantics for WMI/TPM calls.
 - Client-only mode:

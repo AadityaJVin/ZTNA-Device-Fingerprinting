@@ -50,8 +50,8 @@ This repository implements a Windows‑only, client‑side device fingerprinting
   - `derive_fingerprint_sha256(...)`: SHA‑256 over canonical JSON (no secret), returns a 64‑hex string used as the device ID.
   - Why: ensure deterministic input and a simple, secure hash result.
 
-- `dpa/example_onboard.py`
-  - Client‑only demo entrypoint.
+- `dpa/client.py`
+  - Client entrypoint.
   - Calls the collector, prints the attributes, and computes/displays the SHA‑256 device ID using the selected keys.
   - No server calls; kept small for clarity and demo purposes.
 
@@ -90,7 +90,7 @@ This repository implements a Windows‑only, client‑side device fingerprinting
 
 ## How to run
 - Python client:
-  - `python -m dpa.example_onboard`
+  - `python -m dpa.client`
   - Ensure Windows, Python 3.8+, and TPM ready (for EK data).
 - Optional .NET client:
   - Install .NET 8 SDK and run the project in `cs-client/ZTNA.DpaClient`.

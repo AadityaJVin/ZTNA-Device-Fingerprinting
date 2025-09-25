@@ -90,6 +90,9 @@ def collect_device_attributes(extra: Optional[Dict[str, str]] = None) -> Dict[st
     # TPM attestation public key (EK) and derived hash (Windows focus)
     # Try multiple Windows sources for EK
     ek_pem = get_ek_public_pem()
+    # Require a real PEM for tpm_attest_pub_pem; ignore plain text fallbacks
+    if ek_pem and not ek_pem.lstrip().startswith("-----BEGIN"):
+        ek_pem = None
     if not ek_pem:
         ek_pem = get_ek_certificate_pem()
     if not ek_pem:

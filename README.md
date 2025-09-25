@@ -10,12 +10,11 @@ Bind a device to relatively stable hardware attributes and derive a cryptographi
   - `collector.py`: Collect Windows attributes (board serial, CPU ID, TPM EK public, disk serial/UUID)
   - `fingerprint.py`: Canonicalize + compute SHA-256 fingerprint over selected keys
   - `tpm.py`: Windows TPM helpers to read EK public or public material
-  - `example_onboard.py`: Client-only demo (collect + print + fingerprint)
+  - `client.py`: Client entrypoint (collect + print + fingerprint)
 - `docs/design.md`: Design & threat model
 - `tests/test_fingerprint.py`: Fingerprint unit tests
 
-##Diagram
-[example_onboard.py.pdf](https://github.com/user-attachments/files/22517958/example_onboard.py.pdf)
+## Diagram
 
 ## Requirements
 - Windows with Python 3.8+
@@ -33,7 +32,7 @@ Bind a device to relatively stable hardware attributes and derive a cryptographi
 
 ## Quick start (client-only)
 ```powershell
-python -m dpa.example_onboard
+python -m dpa.client
 ```
 This will:
 - Collect Windows attributes (shows `tpm_attest_pub_pem` head/tail if present)

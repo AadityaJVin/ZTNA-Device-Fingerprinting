@@ -4,7 +4,7 @@ sequenceDiagram
     participant TPM as tpm.py
     participant OS as Windows WMI/Tools
 
-    User->>Collector: run python -m dpa.example_onboard
+    User->>Collector: run python -m dpa.client
     Collector->>OS: Win32_BIOS.SerialNumber (board_serial)
     OS-->>Collector: BIOS serial (if available)
     Collector->>OS: Win32_Processor.ProcessorId (cpu_id)
