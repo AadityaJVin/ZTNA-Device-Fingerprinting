@@ -38,7 +38,6 @@ python -m dpa.example_onboard
 This will:
 - Collect Windows attributes (shows `tpm_attest_pub_pem` head/tail if present)
 - Compute and display the Device ID (SHA-256)
--  <img width="1497" height="472" alt="Screenshot 2025-09-25 113756" src="https://github.com/user-attachments/assets/9b14d1d2-6c64-406e-b613-11c34cb7dc74" />
 
 ## Endpoints
 Not applicable (server removed). Client runs fully locally.
