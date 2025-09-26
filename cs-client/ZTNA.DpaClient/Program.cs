@@ -25,8 +25,22 @@ class Program
             var toShow = new System.Collections.Generic.Dictionary<string, string>(attributes);
             Console.WriteLine(JsonSerializer.Serialize(toShow, new JsonSerializerOptions { WriteIndented = true }));
 
-            Console.WriteLine($"Fingerprint: {fingerprint}");
-            Console.WriteLine($"Device ID: {fingerprint}");
+            Console.WriteLine();
+            var cyan = "\u001b[96m";
+            var reset = "\u001b[0m";
+            try
+            {
+                Console.WriteLine($"{cyan}Local fingerprint: {fingerprint}{reset}");
+                Console.WriteLine($"{cyan}Device ID: {fingerprint}{reset}");
+            }
+            catch
+            {
+                Console.WriteLine($"Local fingerprint: {fingerprint}");
+                Console.WriteLine($"Device ID: {fingerprint}");
+            }
+            Console.WriteLine();
+            var boldRed = "\u001b[1;91m";
+            Console.WriteLine($"{boldRed}WARNING: This output contains sensitive hardware identifiers (board_serial, cpu_id, disk_serial_or_uuid, TPM EK cert/serial, tpm_pubkey_hash, fingerprint, device_id). DO NOT share publicly. The author/code is not liable for any disclosure.\u001b[0m");
 
             var server = Environment.GetEnvironmentVariable("DPA_SERVER");
             if (!string.IsNullOrWhiteSpace(server))
