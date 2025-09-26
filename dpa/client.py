@@ -24,10 +24,6 @@ def main() -> None:
     to_show = {}
     for key in ordered_keys:
         value = attributes.get(key, "")
-        if key == "tpm_attest_pub_pem" and value:
-            pem = value
-            if len(pem) > 260:
-                value = pem[:120] + " ... [truncated] ... " + pem[-120:]
         to_show[key] = value
     print(json.dumps(to_show, indent=2))
     print(f"Local fingerprint: {fingerprint}")

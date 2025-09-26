@@ -23,29 +23,32 @@ class Program
 
             Console.WriteLine("Attributes:");
             var toShow = new System.Collections.Generic.Dictionary<string, string>(attributes);
-            if (toShow.TryGetValue("tpm_attest_pub_pem", out var pem) && pem.Length > 260)
-            {
-                toShow["tpm_attest_pub_pem"] = pem.Substring(0, 120) + " ... [truncated] ... " + pem.Substring(pem.Length - 120);
-            }
             Console.WriteLine(JsonSerializer.Serialize(toShow, new JsonSerializerOptions { WriteIndented = true }));
 
             Console.WriteLine($"Fingerprint: {fingerprint}");
             Console.WriteLine($"Device ID: {fingerprint}");
 
-            var server = Environment.GetEnvironmentVariable("DPA_SERVER") ?? "http://127.0.0.1:8080";
-            using var http = new HttpClient();
-            var onboardPayload = new { attributes };
-            var onboardResp = http.PostAsJsonAsync(server + "/onboard", onboardPayload).Result;
-            var onboardJson = onboardResp.Content.ReadAsStringAsync().Result;
-            Console.WriteLine("Onboard response:");
-            Console.WriteLine(onboardJson);
+            var server = Environment.GetEnvironmentVariable("DPA_SERVER");
+            if (!string.IsNullOrWhiteSpace(server))
+            {
+                using var http = new HttpClient();
+                var onboardPayload = new { attributes };
+                var onboardResp = http.PostAsJsonAsync(server + "/onboard", onboardPayload).Result;
+                var onboardJson = onboardResp.Content.ReadAsStringAsync().Result;
+                Console.WriteLine("Onboard response:");
+                Console.WriteLine(onboardJson);
 
-            using var doc = JsonDocument.Parse(onboardJson);
-            var deviceId = doc.RootElement.GetProperty("device_id").GetString() ?? fingerprint;
-            var attestPayload = new { device_id = deviceId, attributes };
-            var attestResp = http.PostAsJsonAsync(server + "/attest", attestPayload).Result;
-            Console.WriteLine("Attest response:");
-            Console.WriteLine(attestResp.Content.ReadAsStringAsync().Result);
+                using var doc = JsonDocument.Parse(onboardJson);
+                var deviceId = doc.RootElement.GetProperty("device_id").GetString() ?? fingerprint;
+                var attestPayload = new { device_id = deviceId, attributes };
+                var attestResp = http.PostAsJsonAsync(server + "/attest", attestPayload).Result;
+                Console.WriteLine("Attest response:");
+                Console.WriteLine(attestResp.Content.ReadAsStringAsync().Result);
+            }
+            else
+            {
+                Console.WriteLine("Skipping server calls (client-only mode). Set DPA_SERVER to enable.");
+            }
 
             return 0;
         }
@@ -87,16 +90,23 @@ class Program
         // Disk serial (first physical disk)
         dict["disk_serial_or_uuid"] = QueryWmiSingle("Win32_DiskDrive", "SerialNumber") ?? string.Empty;
 
-        // TPM EK public PEM and serial from multiple sources
-        var (pem, serial) = TryGetEkCertPemAndSerial();
+        // TPM EK public PEM and serial from multiple sources (prefer PowerShell TrustedPlatformModule)
+        var (pem, serial, pubMaterial) = TryGetEkViaPreferredSources();
         if (!string.IsNullOrWhiteSpace(pem))
         {
             dict["tpm_attest_pub_pem"] = pem;
-            dict["tpm_pubkey_hash"] = Sha256Hex(Encoding.UTF8.GetBytes(pem));
         }
         if (!string.IsNullOrWhiteSpace(serial))
         {
             dict["tpm_ek_cert_serial"] = serial;
+        }
+        if (!string.IsNullOrWhiteSpace(pem))
+        {
+            dict["tpm_pubkey_hash"] = Sha256Hex(Encoding.UTF8.GetBytes(pem));
+        }
+        else if (!string.IsNullOrWhiteSpace(pubMaterial))
+        {
+            dict["tpm_pubkey_hash"] = Sha256Hex(Encoding.UTF8.GetBytes(pubMaterial));
         }
 
         // Remove empties
@@ -105,16 +115,40 @@ class Program
         return dict;
     }
 
-    static (string? pem, string? serial) TryGetEkCertPemAndSerial()
+    static string? QueryWmiSingle(string wmiClass, string property)
     {
-        // 1) tpmtool getekcertificate -> saved .cer
-        var pem = GetEkPublicPemViaTpmtool();
-        if (!string.IsNullOrWhiteSpace(pem))
+        try
         {
-            // Serial may not be known here
-            return (pem, null);
+            using var searcher = new ManagementObjectSearcher($"SELECT {property} FROM {wmiClass}");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                var val = obj[property];
+                if (val != null)
+                {
+                    var s = val.ToString();
+                    if (!string.IsNullOrWhiteSpace(s)) return s;
+                }
+            }
         }
-        // 2) Parse tpmtool device info (no PEM, but serial may exist)
+        catch { }
+        return null;
+    }
+
+    static (string? pem, string? serial, string? pubMaterial) TryGetEkViaPreferredSources()
+    {
+        // 1) PowerShell TrustedPlatformModule (preferred)
+        var (pemPs, serialPs, pubPs) = GetEkViaPowerShell();
+        if (!string.IsNullOrWhiteSpace(pemPs) || !string.IsNullOrWhiteSpace(serialPs) || !string.IsNullOrWhiteSpace(pubPs))
+        {
+            return (pemPs, serialPs, pubPs);
+        }
+        // 2) Cert store fallback
+        var (pemStore, snStore) = GetEkCertFromCertStore();
+        if (!string.IsNullOrWhiteSpace(pemStore) || !string.IsNullOrWhiteSpace(snStore))
+        {
+            return (pemStore, snStore, null);
+        }
+        // 3) tpmtool device info as last resort for serial
         var info = GetTpmDeviceInfoViaTpmtool();
         string? serialFromInfo = null;
         if (!string.IsNullOrWhiteSpace(info))
@@ -127,20 +161,32 @@ class Program
                 if (parts.Length >= 2) serialFromInfo = parts[1].Trim();
             }
         }
-        // 3) Cert store fallback
-        var (pemStore, snStore) = GetEkCertFromCertStore();
-        if (!string.IsNullOrWhiteSpace(pemStore) || !string.IsNullOrWhiteSpace(snStore))
-        {
-            return (pemStore, snStore ?? serialFromInfo);
-        }
-        return (null, serialFromInfo);
+        return (null, serialFromInfo, null);
     }
 
-    static string? GetEkPublicPemViaTpmtool()
+    static (string? pem, string? serial, string? publicMaterial) GetEkViaPowerShell()
     {
         try
         {
-            var psi = new ProcessStartInfo("tpmtool", "getekcertificate")
+            // Ensure module and fetch EK
+            string script = string.Join("; ", new[]
+            {
+                "if (Get-Module -ListAvailable -Name TrustedPlatformModule) { Import-Module TrustedPlatformModule -ErrorAction SilentlyContinue }",
+                "$ek = $null; if (Get-Command Get-TpmEndorsementKeyInfo -ErrorAction SilentlyContinue) { $ek = Get-TpmEndorsementKeyInfo }",
+                // Emit three lines separated by markers so we can parse reliably
+                "if ($ek) {",
+                "  $cert = $null; if ($ek.ManufacturerCertificates -and $ek.ManufacturerCertificates.Count -gt 0) { $cert = $ek.ManufacturerCertificates | Select-Object -First 1 }",
+                "  $serial = if ($cert) { $cert.SerialNumber } else { '' }",
+                "  $pemb64 = if ($cert) { [Convert]::ToBase64String($cert.Export('Cert')) } else { '' }",
+                "  $pub = if ($ek.PublicKey) { $ek.PublicKey.Format($false) } else { '' }",
+                "  Write-Output ('__SERIAL__:' + $serial)",
+                "  Write-Output ('__PEM_B64__:' + $pemb64)",
+                "  Write-Output ('__PUB__:' + $pub)",
+                "} else { Write-Output '__SERIAL__:'; Write-Output '__PEM__:'; Write-Output '__PUB__:' }"
+            });
+
+            var psPath = Environment.ExpandEnvironmentVariables(@"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
+            var psi = new ProcessStartInfo(psPath, "-NoProfile -ExecutionPolicy Bypass -Command \"" + script.Replace("\"", "\\\"") + "\"")
             {
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
@@ -148,19 +194,29 @@ class Program
             };
             using var p = Process.Start(psi)!;
             var output = p.StandardOutput.ReadToEnd();
-            p.WaitForExit(3000);
-            var line = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                             .FirstOrDefault(s => s.Contains("saved to", StringComparison.OrdinalIgnoreCase));
-            if (line == null) return null;
-            var parts = line.Split(new[] { "saved to" }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) return null;
-            var path = parts[1].Trim().Trim('"');
-            if (!File.Exists(path)) return null;
-            var der = File.ReadAllBytes(path);
-            var b64 = Convert.ToBase64String(der);
-            return WrapPem(b64, "CERTIFICATE");
+            p.WaitForExit(10000);
+
+            string? serial = null, pem = null, pub = null, pemb64 = null;
+            foreach (var line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (line.StartsWith("__SERIAL__:")) serial = line.Substring("__SERIAL__:".Length).Trim();
+                else if (line.StartsWith("__PEM_B64__:")) pemb64 = line.Substring("__PEM_B64__:".Length).Trim();
+                else if (line.StartsWith("__PUB__:")) pub = line.Substring("__PUB__:".Length);
+            }
+            if (!string.IsNullOrWhiteSpace(pemb64))
+            {
+                pem = WrapPem(pemb64, "CERTIFICATE");
+            }
+            var wantDebug = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DPA_DEBUG"));
+            if (wantDebug)
+            {
+                Console.Error.WriteLine("[debug] PS serial: " + (serial ?? "<none>"));
+                Console.Error.WriteLine("[debug] PS pemB64: " + (!string.IsNullOrWhiteSpace(pemb64) ? "<present>" : "<none>"));
+                Console.Error.WriteLine("[debug] PS pub material: " + (!string.IsNullOrWhiteSpace(pub) ? "<present>" : "<none>"));
+            }
+            return (string.IsNullOrWhiteSpace(pem) ? null : pem, string.IsNullOrWhiteSpace(serial) ? null : serial, string.IsNullOrWhiteSpace(pub) ? null : pub);
         }
-        catch { return null; }
+        catch { return (null, null, null); }
     }
 
     static string? GetTpmDeviceInfoViaTpmtool()
