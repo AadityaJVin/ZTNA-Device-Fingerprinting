@@ -38,6 +38,11 @@ This will:
 - Collect Windows attributes (shows `tpm_attest_pub_pem` head/tail if present)
 - Compute and display the Device ID (SHA-256)
 
+## Warning
+- This tool prints sensitive hardware identifiers: `board_serial`, `cpu_id`, `disk_serial_or_uuid`, TPM EK certificate/serial, `tpm_pubkey_hash`, `fingerprint`, and `device_id`.
+- Do NOT share this output publicly. Treat it as confidential device identity material.
+- The authors/code are not liable for any disclosure or misuse of the generated identifiers.
+
 ## Endpoints
 Not applicable (server removed). Client runs fully locally.
 
