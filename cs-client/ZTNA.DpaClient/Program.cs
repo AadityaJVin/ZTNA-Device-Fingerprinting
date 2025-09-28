@@ -1,3 +1,13 @@
+/*
+ * ZTNA Device Fingerprinting C# Client
+ * 
+ * Collects hardware attributes and generates device fingerprints for Zero Trust Network Access.
+ * - Collects BIOS serial, CPU ID, disk serial, TPM EK certificate via WMI and PowerShell
+ * - Generates deterministic SHA-256 device fingerprint
+ * - Supports optional server communication for device attestation
+ * - Displays results with colorized output and security warnings
+ */
+
 using System;
 using System.IO;
 using System.Linq;
@@ -12,19 +22,30 @@ using System.Security.Cryptography.X509Certificates;
 
 class Program
 {
+    /// <summary>
+    /// Main entry point for device fingerprinting client.
+    /// Collects hardware attributes, generates fingerprint, and optionally communicates with server.
+    /// </summary>
     static int Main(string[] args)
     {
         try
         {
+            // Collect hardware attributes from Windows WMI and TPM
             var attributes = CollectAttributes();
+            
+            // Define keys to include in fingerprint calculation (exclude large PEM)
             var includeKeys = new[] { "board_serial", "cpu_id", "tpm_attest_pub_pem", "tpm_pubkey_hash", "tpm_ek_cert_serial", "disk_serial_or_uuid" };
+            
+            // Canonicalize attributes and generate SHA-256 fingerprint
             var canonical = Canonicalize(attributes, includeKeys);
             var fingerprint = Sha256Hex(Encoding.UTF8.GetBytes(canonical));
 
+            // Display collected attributes in JSON format
             Console.WriteLine("Attributes:");
             var toShow = new System.Collections.Generic.Dictionary<string, string>(attributes);
             Console.WriteLine(JsonSerializer.Serialize(toShow, new JsonSerializerOptions { WriteIndented = true }));
 
+            // Display fingerprint and device ID with cyan color
             Console.WriteLine();
             var cyan = "\u001b[96m";
             var reset = "\u001b[0m";
@@ -73,6 +94,10 @@ class Program
         }
     }
 
+    /// <summary>
+    /// Canonicalize attributes for deterministic fingerprinting.
+    /// Filters to include only specified keys, sorts alphabetically, and creates compact JSON.
+    /// </summary>
     static string Canonicalize(System.Collections.Generic.IDictionary<string, string> attrs, string[] include)
     {
         var filtered = attrs
@@ -82,6 +107,9 @@ class Program
         return JsonSerializer.Serialize(filtered, new JsonSerializerOptions { WriteIndented = false });
     }
 
+    /// <summary>
+    /// Compute SHA-256 hash and return as hex string.
+    /// </summary>
     static string Sha256Hex(byte[] data)
     {
         using var sha = SHA256.Create();
@@ -91,20 +119,24 @@ class Program
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Collect hardware attributes for device fingerprinting.
+    /// Gathers BIOS serial, CPU ID, disk serial, and TPM Endorsement Key data.
+    /// </summary>
     static System.Collections.Generic.Dictionary<string, string> CollectAttributes()
     {
         var dict = new System.Collections.Generic.Dictionary<string, string>();
 
-        // BIOS/Motherboard serial
+        // Get motherboard/BIOS serial number via WMI
         dict["board_serial"] = QueryWmiSingle("Win32_BIOS", "SerialNumber") ?? string.Empty;
 
-        // CPU ID (best-effort)
+        // Get CPU processor ID via WMI (best-effort, may not be unique)
         dict["cpu_id"] = QueryWmiSingle("Win32_Processor", "ProcessorId") ?? string.Empty;
 
-        // Disk serial (first physical disk)
+        // Get primary disk serial number via WMI
         dict["disk_serial_or_uuid"] = QueryWmiSingle("Win32_DiskDrive", "SerialNumber") ?? string.Empty;
 
-        // TPM EK public PEM and serial from multiple sources (prefer PowerShell TrustedPlatformModule)
+        // Get TPM Endorsement Key certificate and serial from multiple sources
         var (pem, serial, pubMaterial) = TryGetEkViaPreferredSources();
         if (!string.IsNullOrWhiteSpace(pem))
         {
@@ -116,19 +148,24 @@ class Program
         }
         if (!string.IsNullOrWhiteSpace(pem))
         {
+            // Use full PEM certificate for hash
             dict["tpm_pubkey_hash"] = Sha256Hex(Encoding.UTF8.GetBytes(pem));
         }
         else if (!string.IsNullOrWhiteSpace(pubMaterial))
         {
+            // Fallback to public key material hash
             dict["tpm_pubkey_hash"] = Sha256Hex(Encoding.UTF8.GetBytes(pubMaterial));
         }
 
-        // Remove empties
+        // Remove empty values to keep output clean
         var keys = dict.Keys.ToList();
         foreach (var k in keys) if (string.IsNullOrWhiteSpace(dict[k])) dict.Remove(k);
         return dict;
     }
 
+    /// <summary>
+    /// Query WMI for a single property value from the first matching object.
+    /// </summary>
     static string? QueryWmiSingle(string wmiClass, string property)
     {
         try
@@ -148,21 +185,27 @@ class Program
         return null;
     }
 
+    /// <summary>
+    /// Try multiple sources to get TPM Endorsement Key certificate and serial.
+    /// Prioritizes PowerShell TrustedPlatformModule, then certificate store, then tpmtool.
+    /// </summary>
     static (string? pem, string? serial, string? pubMaterial) TryGetEkViaPreferredSources()
     {
-        // 1) PowerShell TrustedPlatformModule (preferred)
+        // 1) PowerShell TrustedPlatformModule (most reliable)
         var (pemPs, serialPs, pubPs) = GetEkViaPowerShell();
         if (!string.IsNullOrWhiteSpace(pemPs) || !string.IsNullOrWhiteSpace(serialPs) || !string.IsNullOrWhiteSpace(pubPs))
         {
             return (pemPs, serialPs, pubPs);
         }
-        // 2) Cert store fallback
+        
+        // 2) Windows certificate store fallback
         var (pemStore, snStore) = GetEkCertFromCertStore();
         if (!string.IsNullOrWhiteSpace(pemStore) || !string.IsNullOrWhiteSpace(snStore))
         {
             return (pemStore, snStore, null);
         }
-        // 3) tpmtool device info as last resort for serial
+        
+        // 3) tpmtool device info as last resort for serial only
         var info = GetTpmDeviceInfoViaTpmtool();
         string? serialFromInfo = null;
         if (!string.IsNullOrWhiteSpace(info))

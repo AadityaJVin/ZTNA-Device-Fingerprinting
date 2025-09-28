@@ -1,3 +1,14 @@
+"""
+TPM (Trusted Platform Module) Helper Functions
+
+Provides Windows-specific TPM Endorsement Key (EK) access methods.
+- PowerShell TrustedPlatformModule integration
+- Windows certificate store access
+- Registry-based EK certificate retrieval
+- TPM command-line tool fallbacks
+- Public key material extraction and hashing
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,6 +21,15 @@ import base64
 
 
 def _read_cmd(command: list[str]) -> Optional[str]:
+    """
+    Execute command and return stdout as string.
+    
+    Args:
+        command: Command and arguments as list
+        
+    Returns:
+        Command output as string, or None if failed
+    """
     try:
         out = subprocess.check_output(command, stderr=subprocess.DEVNULL)
         return out.decode("utf-8", errors="ignore").strip()
@@ -18,17 +38,29 @@ def _read_cmd(command: list[str]) -> Optional[str]:
 
 
 def _sha256_hex(data: bytes) -> str:
+    """
+    Compute SHA-256 hash and return as hex string.
+    
+    Args:
+        data: Input bytes to hash
+        
+    Returns:
+        64-character hex string
+    """
     return hashlib.sha256(data).hexdigest()
 
 
 def get_tpm_public_material_hash() -> Optional[str]:
-    """Best-effort TPM public material hash.
-
-    Strategy:
-    - Windows: Try PowerShell Get-TpmEndorsementKeyInfo public key; fallback none
-    - Linux: Try tpm2-tools to read any persistent handle public area; fallback none
-    - macOS: Secure Enclave does not expose a stable public identifier → None
-    Returns SHA-256 hex of whatever public bytes/text we can access.
+    """
+    Extract TPM public key material and return SHA-256 hash.
+    
+    Attempts to get TPM Endorsement Key public material for fingerprinting.
+    Windows: Uses PowerShell TrustedPlatformModule cmdlets
+    Linux: Uses tpm2-tools (if available)
+    macOS: Not supported (Secure Enclave doesn't expose stable identifiers)
+    
+    Returns:
+        SHA-256 hex hash of TPM public material, or None if unavailable
     """
     system = platform.system().lower()
     if system != "windows":

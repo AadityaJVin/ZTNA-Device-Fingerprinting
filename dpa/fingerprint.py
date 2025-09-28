@@ -1,14 +1,12 @@
 """
-Fingerprint generation
+Device Fingerprint Generation
 
-Canonicalizes device attributes and computes a stable HMAC-based fingerprint.
-
-Enhanced capabilities (backward compatible defaults):
-- Normalization of common attribute formats (e.g., MAC addresses)
-- Versioned canonicalization for forward-compatibility
-- Optional enrollment nonce binding to prevent replay/cloning across enrollments
-- Include/exclude key filters to limit unstable attributes
-- Configurable device ID length
+Generates deterministic cryptographic fingerprints from hardware attributes.
+- Canonicalizes attributes for consistent ordering and formatting
+- Normalizes common identifiers (MAC addresses, serial numbers)
+- Supports both HMAC (with secret) and SHA-256 (without secret) modes
+- Filters attributes via include/exclude lists for stability
+- Versioned canonicalization for forward compatibility
 """
 
 from __future__ import annotations
@@ -21,18 +19,33 @@ import hashlib
 
 
 def _normalize_mac(value: str) -> str:
+    """
+    Normalize MAC address to consistent format.
+    
+    Converts to lowercase, replaces dashes with colons, and zero-pads segments.
+    Example: "00-1A-2B-3C-4D-5E" -> "00:1a:2b:3c:4d:5e"
+    """
     v = value.strip().lower().replace("-", ":")
-    # zero-pad segments to 2 chars if needed
+    # Zero-pad segments to 2 chars if needed
     parts = [p.zfill(2) for p in v.split(":") if p]
     return ":".join(parts)
 
 
 def normalize_attributes(attributes: Dict[str, str]) -> Dict[str, str]:
-    """Best-effort normalization for stability across OSes and formats.
-
-    - Lowercase keys
-    - Strip whitespace on values
-    - Normalize common identifiers (MAC address)
+    """
+    Normalize attributes for consistent fingerprinting across systems.
+    
+    Performs:
+    - Lowercase all keys
+    - Strip whitespace from values
+    - Normalize MAC addresses to standard format
+    - Convert None values to empty strings
+    
+    Args:
+        attributes: Raw attribute dictionary
+        
+    Returns:
+        Normalized attribute dictionary
     """
     normalized: Dict[str, str] = {}
     for key, value in attributes.items():
@@ -52,14 +65,25 @@ def canonicalize_attributes(
     exclude_keys: Optional[Iterable[str]] = None,
     enroll_nonce: Optional[str] = None,
 ) -> Tuple[str, str]:
-    """Return (canonical_json, canonical_string) of attributes.
-
-    - Normalize and convert all values to strings
-    - Optionally filter with include/exclude lists (case-insensitive)
-    - Optionally bind an enrollment nonce
-    - Sort keys lexicographically
-    - Compact JSON (no whitespace)
-    - Also emit a newline-delimited key=value string for debugging
+    """
+    Canonicalize attributes for deterministic fingerprinting.
+    
+    Creates a consistent representation by:
+    - Normalizing all attribute values
+    - Filtering by include/exclude key lists (case-insensitive)
+    - Adding version and optional enrollment nonce
+    - Sorting keys lexicographically
+    - Generating compact JSON and debug string formats
+    
+    Args:
+        attributes: Raw attribute dictionary
+        version: Canonicalization version for forward compatibility
+        include_keys: Only include these keys (if specified)
+        exclude_keys: Exclude these keys from canonicalization
+        enroll_nonce: Optional nonce to bind to enrollment
+        
+    Returns:
+        Tuple of (canonical_json, canonical_debug_string)
     """
     base = normalize_attributes(attributes)
 
@@ -122,10 +146,23 @@ def derive_fingerprint_sha256(
     exclude_keys: Optional[Iterable[str]] = None,
     enroll_nonce: Optional[str] = None,
 ) -> str:
-    """Compute SHA-256 over canonical JSON (no secret). Returns hex digest.
-
-    Use for environments where a shared secret is not desired; relies on
-    the stability and entropy of the selected attributes.
+    """
+    Generate SHA-256 device fingerprint from hardware attributes.
+    
+    Creates a deterministic 64-character hex fingerprint by:
+    - Canonicalizing selected attributes
+    - Computing SHA-256 hash of canonical JSON
+    - No shared secret required (uses attribute entropy)
+    
+    Args:
+        attributes: Hardware attribute dictionary
+        version: Canonicalization version
+        include_keys: Only include these keys in fingerprint
+        exclude_keys: Exclude these keys from fingerprint
+        enroll_nonce: Optional enrollment nonce for binding
+        
+    Returns:
+        64-character hex SHA-256 fingerprint
     """
     canonical_json, _ = canonicalize_attributes(
         attributes,
