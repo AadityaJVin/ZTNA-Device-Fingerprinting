@@ -19,6 +19,9 @@ This project explores cryptographic binding of system attributes with TPM-backed
 - Runs diagnostics to detect missing or inconsistent data  
 
 ---
+## Warning
+⚠️ **SENSITIVE DATA**: This tool outputs unique hardware identifiers. Do NOT share publicly.
+---
 
 ## ⚡ Quick Start
 ```powershell
@@ -34,9 +37,3 @@ python -m dpa.client
 - **Hardware Attributes**: BIOS serial, CPU ID, disk serial, TPM EK certificate/serial
 - **Device Fingerprint**: SHA-256 hash of canonicalized attributes
 - **Device ID**: Same as fingerprint (64 hex characters)
-
-## Warning
-⚠️ **SENSITIVE DATA**: This tool outputs unique hardware identifiers. Do NOT share publicly.
-
-## License
-MIT
