@@ -20,7 +20,7 @@ This project explores cryptographic binding of system attributes with TPM-backed
 
 ---
 ## Warning
-⚠️ **SENSITIVE DATA**: This tool outputs unique hardware identifiers. Do NOT share publicly.
+⚠️ **SENSITIVE DATA**: *This tool outputs unique hardware identifiers. Do NOT share publicly*.
 ---
 
 ## ⚡ Quick Start
