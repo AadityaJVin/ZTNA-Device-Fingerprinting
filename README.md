@@ -1,5 +1,7 @@
 # TPM-Bound-Fingerprint
 
+Learning project on TPM-bound device fingerprinting and hardware identity.
+
 TPM-Bound-Fingerprint is a learning project that demonstrates how to generate a device fingerprint securely tied to the Trusted Platform Module (TPM). By binding system attributes with TPM-backed cryptographic functions, the project explores techniques for creating a tamper-resistant hardware identity. The purpose is to gain hands-on experience with trusted hardware, device identification, and security primitives.
 
 ## Quick Start
