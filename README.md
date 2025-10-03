@@ -1,19 +1,29 @@
-# TPM-Bound-Fingerprint
+# TPM-Bound-Fingerprint  
 
-Learning project on TPM-bound device fingerprinting and hardware identity.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)  
+[![Python](https://img.shields.io/badge/Python-3.9+-green.svg)](https://www.python.org/)  
+[![Platform](https://img.shields.io/badge/OS-Windows%2010/11-lightgrey.svg)]()  
 
-TPM-Bound-Fingerprint is a learning project that demonstrates how to generate a device fingerprint securely tied to the Trusted Platform Module (TPM). By binding system attributes with TPM-backed cryptographic functions, the project explores techniques for creating a tamper-resistant hardware identity. The purpose is to gain hands-on experience with trusted hardware, device identification, and security primitives.
+A learning project demonstrating how to generate a **tamper-resistant device fingerprint** securely bound to the **Trusted Platform Module (TPM)**.  
 
-## Quick Start
+This project explores cryptographic binding of system attributes with TPM-backed primitives to create a trusted hardware identity. It provides hands-on experience with **trusted hardware, device security, and cryptography**.  
+
+---
+
+## 🚀 Features
+- Collects stable hardware identifiers:  
+  - BIOS serial, CPU ID, disk serial  
+  - TPM Endorsement Key (EK) certificate  
+- Generates a unique **64-character SHA-256 device fingerprint**  
+- Requests administrator privileges automatically for TPM access  
+- Runs diagnostics to detect missing or inconsistent data  
+
+---
+
+## ⚡ Quick Start
 ```powershell
 python -m dpa.client
-```
 
-## What It Does
-- Collects stable hardware identifiers (BIOS serial, CPU ID, disk serial, TPM EK certificate)
-- Generates a unique 64-character SHA-256 device fingerprint
-- Automatically requests admin privileges for full TPM access
-- Runs comprehensive diagnostics to troubleshoot missing data
 
 ## Requirements
 - Windows 10/11 with TPM 2.0 enabled
