@@ -10,6 +10,12 @@ This project explores cryptographic binding of system attributes with TPM-backed
 
 ---
 
+## 💡 Motivation
+The goal of this project is to explore **trusted hardware and secure device identity management**.  
+By leveraging the Trusted Platform Module (TPM), this project demonstrates how to create **tamper-resistant, cryptographically bound device fingerprints**, helping developers understand hardware-level security and cryptography concepts.  
+
+---
+
 ## 🚀 Features
 - Collects stable hardware identifiers:  
   - BIOS serial, CPU ID, disk serial  
@@ -20,7 +26,7 @@ This project explores cryptographic binding of system attributes with TPM-backed
 
 ---
 ## Warning
-⚠️ **SENSITIVE DATA**: *This tool outputs unique hardware identifiers. Do NOT share publicly*.
+⚠️ SENSITIVE DATA: *This tool outputs unique hardware identifiers. Do NOT share publicly*.
 ---
 
 ## ⚡ Quick Start
