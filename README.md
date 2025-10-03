@@ -23,7 +23,7 @@ This project explores cryptographic binding of system attributes with TPM-backed
 ## ⚡ Quick Start
 ```powershell
 python -m dpa.client
-
+```
 
 ## Requirements
 - Windows 10/11 with TPM 2.0 enabled
